@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>谢雯宇 · 具身智能与离线强化学习</title>
+<meta name="description" content="谢雯宇，同济大学途灵 TIEV 智能无人系统实验室本科生科研成员，研究机器人操作中的自适应动作序列选择与 VLA 执行过程的安全风险预测。">
+<meta name="theme-color" content="#0D1117">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230D1117'/%3E%3Cpath d='M4 22h6v-6h6v-6h6v-6h6' stroke='%234FD1C5' stroke-width='2.5' fill='none'/%3E%3C/svg%3E">
+
+<!--
+  可选：想要网络字体时取消注释（国内访问 Google Fonts 可能较慢，不开也不影响排版）
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Serif+SC:wght@600&display=swap" rel="stylesheet">
+-->
+<style>
+/* =========================================================
+   姓名 · 个人主页 —— 浅色「轨迹绘图器」风格
+   配色变量集中在 :root，改一处全站生效
+   ========================================================= */
+
+:root{
+  --bg:        #FBFBFA;
+  --bg-fig:    #FFFFFF;
+  --rule:      #E4E7EC;
+  --rule-2:    #C8D0DA;
+  --text:      #171C24;
+  --text-2:    #4B5563;
+  --text-3:    #6B7683;
+  --teal:      #0B8C80;
+  --teal-soft: rgba(11,140,128,.20);
+  --teal-line: #7FC6BD;
+  --amber:     #B9720B;
+  --blue:      #3B6FD4;
+  --violet:    #6D5BD0;
+
+  --serif: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", "Noto Serif SC", "STSong", SimSun, Georgia, serif;
+  --sans:  "PingFang SC", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", -apple-system, "Segoe UI", sans-serif;
+  --mono:  "SF Mono", "JetBrains Mono", "Cascadia Mono", Consolas, Menlo, "Liberation Mono", monospace;
+
+  --rail-w: 310px;
+  --gap: 3.4rem;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html{ scroll-behavior:smooth; scroll-padding-top:2rem; }
+
+body{
+  margin:0;
+  background:var(--bg);
+  background-image:
+    linear-gradient(to right, rgba(11,140,128,.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(11,140,128,.055) 1px, transparent 1px);
+  background-size:64px 64px;
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.78;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+::selection{ background:#0B8C80; color:#fff; }
+
+.mono{ font-family:var(--mono); }
+.dim{ color:var(--text-3); }
+
+/* ---------------- 顶部状态栏 ---------------- */
+.topbar{
+  border-bottom:1px solid var(--rule);
+  padding:.6rem 2.2rem;
+  display:flex; justify-content:space-between; align-items:center; gap:1rem;
+  font-family:var(--mono);
+  font-size:.72rem;
+  letter-spacing:.1em;
+  color:var(--text-3);
+  position:sticky; top:0; z-index:20;
+  background:rgba(251,251,250,.9);
+  backdrop-filter:blur(8px);
+}
+.topbar-l{ color:var(--teal); opacity:.85; }
+
+/* ---------------- 布局 ---------------- */
+.wrap{
+  max-width:1180px;
+  margin:0 auto;
+  padding:3rem 2.2rem 4rem;
+  display:grid;
+  grid-template-columns:var(--rail-w) minmax(0,1fr);
+  gap:var(--gap);
+  align-items:start;
+}
+
+/* ---------------- 左侧栏 ---------------- */
+.rail{
+  position:sticky; top:4.2rem;
+  display:flex; flex-direction:column; gap:2.2rem;
+  padding-left:1.6rem;          /* 介绍部分整体右移 */
+}
+.name{
+  font-family:var(--serif);
+  font-size:2.6rem;
+  font-weight:600;
+  line-height:1.15;
+  margin:0 0 .3rem;
+  letter-spacing:.04em;
+}
+.name-en{ margin:0 0 1.3rem; font-size:.85rem; color:var(--text-3); }
+.name-en .sep{ color:var(--rule-2); margin:0 .3rem; }
+.affil{ margin:0; font-size:.9rem; line-height:1.7; color:var(--text-2); }
+.affil .mono{ font-size:.78rem; letter-spacing:.04em; }
+
+.contact{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.55rem; }
+.contact li{ display:flex; align-items:center; gap:.55rem; font-size:.82rem; }
+.contact .ic{ width:14px; height:14px; flex:0 0 14px; color:var(--text-3); }
+.contact a,.copy{
+  color:var(--text-2); text-decoration:none;
+  border:0; background:none; padding:0; cursor:pointer;
+  font-family:inherit; font-size:inherit;
+  white-space:nowrap;
+}
+.contact a:hover,.copy:hover{ color:var(--teal); }
+.contact .tag{
+  font-size:.62rem; letter-spacing:.08em; color:var(--text-3);
+  border:1px solid var(--rule-2); border-radius:2px; padding:.05rem .3rem;
+  align-self:center;
+}
+
+.nav{ display:flex; flex-direction:column; gap:.1rem; border-left:1px solid var(--rule); padding-left:.9rem; }
+.nav a{
+  color:var(--text-3); text-decoration:none; font-size:.88rem;
+  padding:.18rem 0; transition:color .15s;
+}
+.nav a:hover{ color:var(--text-2); }
+.nav a.on{ color:var(--teal); }
+
+.rail-status{
+  margin:0; font-size:.78rem; color:var(--text-3);
+  display:flex; align-items:flex-start; gap:.5rem; line-height:1.6;
+}
+.dot{
+  width:6px; height:6px; flex:0 0 6px; margin-top:.6rem;
+  background:var(--teal); border-radius:50%;
+  box-shadow:0 0 0 0 rgba(11,140,128,.45);
+  animation:pulse 2.6s ease-out infinite;
+}
+@keyframes pulse{
+  0%{ box-shadow:0 0 0 0 rgba(11,140,128,.45); }
+  70%{ box-shadow:0 0 0 7px rgba(11,140,128,0); }
+  100%{ box-shadow:0 0 0 0 rgba(11,140,128,0); }
+}
+
+/* ---------------- 主内容 ---------------- */
+.main{ min-width:0; }
+
+/* 首屏 */
+.hero{ margin-bottom:3.2rem; }
+.hero-lede{
+  font-size:1.28rem; line-height:1.85; color:var(--text-2);
+  max-width:34em; margin:0 0 2.4rem;
+}
+.hero-lede b{ color:var(--text); font-weight:600; }
+
+/* 图框（论文插图式的方框，不是卡片） */
+.fig{
+  margin:0;
+  background:var(--bg-fig);
+  border:1px solid var(--rule);
+  padding:1.1rem 1.25rem 1rem;
+}
+.cap{
+  display:flex; justify-content:space-between; align-items:baseline; gap:1rem;
+  border-bottom:1px solid var(--rule); padding-bottom:.45rem; margin-bottom:.9rem;
+}
+.cap-t{ font-size:.88rem; color:var(--text); }
+.cap-n{ font-size:.68rem; letter-spacing:.12em; color:var(--text-3); text-align:right; }
+
+/* 动作块序列 */
+.strip{ margin:0; }
+.strip-canvas{ position:relative; }
+.strip-svg{ display:block; width:100%; height:auto; }
+.strip-svg .ticks line{ stroke:var(--rule-2); stroke-width:1; }
+.strip-svg .tick-labels text{ fill:var(--text-3); font-size:11px; }
+.strip-svg .chunks rect{ fill:var(--teal); fill-opacity:.28; stroke:var(--teal-line); stroke-width:1; }
+.strip-svg .chunks .chunk-hot{ fill:var(--amber); fill-opacity:.85; stroke:var(--amber); }
+.strip-svg .chunk-label{ fill:var(--amber); font-size:11px; letter-spacing:.08em; }
+
+.playhead{
+  position:absolute; top:0; bottom:0; width:1px;
+  background:linear-gradient(to bottom, rgba(185,114,11,.75), rgba(185,114,11,.12));
+  animation:sweep 3.2s cubic-bezier(.4,0,.2,1) .3s both;
+}
+@keyframes sweep{
+  from{ left:2%; } to{ left:97%; }
+}
+
+.fig-note{ font-size:.72rem; color:var(--text-3); margin:.7rem 0 0; letter-spacing:.02em; }
+
+/* 章节 */
+.sec{ margin-bottom:3.4rem; scroll-margin-top:3rem; }
+.sec-title{
+  font-family:var(--serif);
+  font-size:1.3rem; font-weight:600; margin:0 0 1.5rem;
+  padding-bottom:.55rem; border-bottom:1px solid var(--rule);
+  display:flex; align-items:center; gap:.65rem;
+}
+.sec-title::before{
+  content:""; width:9px; height:9px; background:var(--teal); flex:0 0 9px;
+}
+
+/* 研究方向 */
+.rows{ list-style:none; margin:0; padding:0; }
+.row{ padding:1.05rem 0; border-bottom:1px solid var(--rule); }
+.row:first-child{ padding-top:.2rem; }
+.row h3{ margin:0 0 .3rem; font-size:1.02rem; font-weight:600; color:var(--text); }
+.row p{ margin:0; color:var(--text-2); font-size:.93rem; line-height:1.75; }
+.row .kw{ margin-top:.45rem; font-size:.72rem; color:var(--text-3); letter-spacing:.04em; }
+
+/* 项目 */
+.proj{ padding:1.8rem 0; border-bottom:1px solid var(--rule); }
+.proj:first-of-type{ padding-top:.2rem; }
+.proj-head{ margin-bottom:.9rem; }
+.proj-head h3{
+  margin:0 0 .3rem; font-family:var(--serif); font-size:1.16rem;
+  font-weight:600; line-height:1.5; color:var(--text);
+}
+.proj-meta{ margin:0; font-size:.74rem; color:var(--text-3); letter-spacing:.04em; }
+.proj-lede{ margin:0 0 1rem; color:var(--text-2); font-size:.96rem; max-width:36em; }
+
+.bullets{ list-style:none; margin:0 0 1.6rem; padding:0; }
+.bullets li{
+  position:relative; padding-left:1.1rem; margin-bottom:.6rem;
+  color:var(--text-2); font-size:.93rem; line-height:1.8; max-width:36em;
+}
+.bullets li::before{
+  content:""; position:absolute; left:0; top:.78em;
+  width:5px; height:5px; background:var(--teal);
+}
+.bullets b{ color:var(--text); font-weight:600; margin-right:.4rem; }
+
+/* 评估矩阵 */
+.matrix-wrap{ overflow-x:auto; padding-bottom:.2rem; }
+.matrix{ display:block; width:100%; max-width:700px; height:auto; }
+.mx-group rect{ stroke:var(--rule-2); stroke-width:1; }
+.mx-group rect:nth-child(1){ fill:rgba(11,140,128,.09); }
+.mx-group rect:nth-child(2){ fill:rgba(59,111,212,.09); }
+.mx-group rect:nth-child(3){ fill:rgba(109,91,208,.09); }
+.mx-group-label text{ fill:var(--text-2); font-size:12px; letter-spacing:.04em; }
+.mx-seed text{ fill:var(--text-3); font-size:10px; }
+.mx-row text{ fill:var(--text-3); font-size:11px; }
+.mx-cells rect{ fill:rgba(11,140,128,.20); stroke:var(--teal-line); stroke-width:.8; }
+.mx-cells.mx-b rect{ fill:rgba(59,111,212,.18); stroke:#A8BEEA; }
+.mx-cells.mx-c rect{ fill:rgba(109,91,208,.16); stroke:#B8AEE8; }
+
+/* 指标对比 */
+.legend{ display:flex; gap:1.4rem; margin:.2rem 0 1.1rem; }
+.lg{ display:flex; align-items:center; gap:.45rem; font-size:.8rem; color:var(--text-2); }
+.sw{ width:22px; height:8px; display:inline-block; flex:0 0 22px; }
+.sw-base{ background:rgba(59,111,212,.40); }
+.sw-geo{ background:var(--teal); }
+
+.metrics{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1.8rem 2rem; }
+.m-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:.55rem; }
+.m-name{ font-size:.86rem; color:var(--text); }
+.m-delta{ font-size:.72rem; color:var(--teal); }
+.bar{
+  position:relative; display:flex; align-items:center; gap:.55rem;
+  height:20px; margin-bottom:3px;
+}
+.bar i{
+  height:8px; width:var(--w); border-radius:1px; flex:0 0 auto;
+  transform-origin:left center;
+  animation:grow .9s cubic-bezier(.2,.7,.3,1) both .35s;
+}
+.bar span{ font-size:.72rem; color:var(--text-2); white-space:nowrap; }
+@keyframes grow{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+.m-axis{ margin:.5rem 0 0; font-size:.68rem; color:var(--text-3); }
+
+/* 教育 */
+.entry{
+  display:flex; justify-content:space-between; align-items:baseline;
+  gap:1.5rem; flex-wrap:wrap;
+}
+.entry h3{ margin:0 0 .25rem; font-family:var(--serif); font-size:1.1rem; font-weight:600; }
+.entry-sub{ margin:0; font-size:.88rem; color:var(--text-2); }
+.entry-r{ font-size:.8rem; color:var(--text-3); white-space:nowrap; }
+.entry-courses{ margin:.9rem 0 0; font-size:.88rem; color:var(--text-3); }
+
+/* 技术能力 */
+.stack{ margin:0; }
+.st{
+  display:grid; grid-template-columns:8.5rem minmax(0,1fr);
+  gap:1rem; padding:.85rem 0; border-bottom:1px solid var(--rule);
+}
+.st:first-child{ padding-top:.2rem; }
+.st dt{ font-family:var(--mono); font-size:.78rem; color:var(--teal); letter-spacing:.05em; padding-top:.2rem; }
+.st dd{ margin:0; font-size:.93rem; color:var(--text-2); line-height:1.75; }
+
+/* 页脚 */
+.foot{
+  border-top:1px solid var(--rule); padding-top:1.2rem; margin-top:3rem;
+  font-size:.78rem; color:var(--text-3);
+  display:flex; gap:.6rem; align-items:center;
+}
+.foot-sep{ color:var(--rule-2); }
+
+/* ---------------- 响应式 ---------------- */
+@media (max-width:900px){
+  .wrap{ grid-template-columns:minmax(0,1fr); gap:2.6rem; padding:2rem 1.3rem 3rem; }
+  .rail{ position:static; gap:1.5rem; padding-left:0; }
+  .name{ font-size:2.1rem; }
+  .nav{ flex-direction:row; flex-wrap:wrap; gap:.2rem 1.2rem; border-left:0; padding-left:0; border-top:1px solid var(--rule); padding-top:.8rem; }
+  .hero-lede{ font-size:1.1rem; }
+  .st{ grid-template-columns:minmax(0,1fr); gap:.15rem; }
+  .topbar{ padding:.55rem 1.3rem; font-size:.66rem; }
+  .topbar-r{ display:none; }
+  .matrix{ min-width:520px; }
+}
+@media (max-width:560px){
+  .cap{ flex-direction:column; align-items:flex-start; gap:.25rem; }
+  .cap-n{ text-align:left; }
+  .metrics{ grid-template-columns:minmax(0,1fr); }
+  .fig{ padding:.9rem .8rem .8rem; }
+  .contact{ font-size:.78rem; }
+  .name{ font-size:1.9rem; }
+}
+
+/* ---------------- 焦点与动效偏好 ---------------- */
+a:focus-visible,button:focus-visible{
+  outline:2px solid var(--teal); outline-offset:2px; border-radius:2px;
+}
+@media (prefers-reduced-motion:reduce){
+  html{ scroll-behavior:auto; }
+  *,*::before,*::after{ animation:none !important; transition:none !important; }
+  .playhead{ display:none; }
+  .bar i{ transform:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== 顶部状态栏 ===================== -->
+<header class="topbar">
+  <span class="topbar-l">TONGJI UNIVERSITY · TIEV LAB</span>
+  <span class="topbar-r">具身智能 · 离线强化学习 · VLA 安全</span>
+</header>
+
+<div class="wrap">
+
+  <!-- ===================== 左侧栏 ===================== -->
+  <aside class="rail">
+    <div class="rail-head">
+      <h1 class="name">谢雯宇</h1>
+      <p class="name-en">Wenyu Xie <span class="sep">/</span> <span class="mono">Hawaii-xwy</span></p>
+      <p class="affil">本科生<br><span class="mono dim">TIEV · 智能无人系统实验室</span></p>
+    </div>
+
+    <ul class="contact">
+      <li>
+        <svg viewBox="0 0 16 16" class="ic"><path d="M2 4.5h12v7H2z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 4.5 8 9l6-4.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+        <button class="copy" data-copy="2418463219@qq.com">2418463219@qq.com</button>
+      </li>
+      <li>
+        <svg viewBox="0 0 16 16" class="ic"><path d="M2 4.5h12v7H2z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2 4.5 8 9l6-4.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+        <button class="copy" data-copy="nhung0923138062@gmail.com">nhung0923138062@gmail.com</button>
+        <span class="tag mono">GitHub</span>
+      </li>
+      <li>
+        <svg viewBox="0 0 16 16" class="ic"><path d="M4 4h8v8H4z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 1.5h6v6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+        <a href="https://github.com/Hawaii-xwy" target="_blank" rel="noopener">github.com/Hawaii-xwy</a>
+      </li>
+      <li>
+        <svg viewBox="0 0 16 16" class="ic"><path d="M4 2.5h8v11H4z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6.5 5h3M6.5 8h3M6.5 11h2" stroke="currentColor" stroke-width="1.2"/></svg>
+        <span class="dim">17749917915</span>
+      </li>
+    </ul>
+
+    <nav class="nav" aria-label="章节导航">
+      <a href="#research">研究方向</a>
+      <a href="#work">科研项目</a>
+      <a href="#edu">教育背景</a>
+      <a href="#stack">技术能力</a>
+    </nav>
+
+    <p class="rail-status">
+      <span class="dot"></span>现于 TIEV 实验室 · 目标投稿 ICML 2027
+    </p>
+  </aside>
+
+  <!-- ===================== 主内容 ===================== -->
+  <main class="main">
+
+    <!-- 首屏 -->
+    <section class="hero">
+      <p class="hero-lede">
+        研究机器人操作中<b>动作执行长度的自适应选择</b>，以及 <b>VLA 执行过程的安全风险预测</b>——
+        在离线强化学习的框架下，让策略既完成任务，也知道自己何时可能出错。
+      </p>
+
+      <figure class="fig strip">
+        <figcaption class="cap">
+          <span class="cap-t">动作块序列 · 块长 H 随策略自适应</span>
+          <span class="cap-n mono">ACTION CHUNK SEQUENCE</span>
+        </figcaption>
+        <div class="strip-canvas">
+          <svg viewBox="0 0 900 130" preserveAspectRatio="none" class="strip-svg" role="img" aria-label="自适应动作块序列示意：动作块长度不等">
+            <!-- 基线与刻度 -->
+            <line x1="0" y1="96" x2="900" y2="96" stroke="var(--rule-2)" stroke-width="1"/>
+            <g class="ticks">
+              <line x1="20"  y1="96" x2="20"  y2="102"/><line x1="190" y1="96" x2="190" y2="102"/>
+              <line x1="360" y1="96" x2="360" y2="102"/><line x1="530" y1="96" x2="530" y2="102"/>
+              <line x1="700" y1="96" x2="700" y2="102"/><line x1="856" y1="96" x2="856" y2="102"/>
+            </g>
+            <g class="tick-labels mono">
+              <text x="20"  y="118" text-anchor="start">t₀</text>
+              <text x="190" y="118" text-anchor="middle">t₁</text>
+              <text x="360" y="118" text-anchor="middle">t₂</text>
+              <text x="530" y="118" text-anchor="middle">t₃</text>
+              <text x="700" y="118" text-anchor="middle">t₄</text>
+              <text x="856" y="118" text-anchor="end">t₅</text>
+            </g>
+            <!-- 动作块（宽度不等 = 自适应长度） -->
+            <g class="chunks">
+              <rect x="20"  y="58" width="44"  height="30" rx="1"/>
+              <rect x="70"  y="58" width="66"  height="30" rx="1"/>
+              <rect x="142" y="58" width="44"  height="30" rx="1"/>
+              <rect x="192" y="58" width="88"  height="30" rx="1"/>
+              <rect x="286" y="58" width="66"  height="30" rx="1"/>
+              <rect x="358" y="58" width="44"  height="30" rx="1"/>
+              <rect x="408" y="58" width="110" height="30" rx="1" class="chunk-hot"/>
+              <rect x="524" y="58" width="66"  height="30" rx="1"/>
+              <rect x="596" y="58" width="44"  height="30" rx="1"/>
+              <rect x="646" y="58" width="88"  height="30" rx="1"/>
+              <rect x="740" y="58" width="66"  height="30" rx="1"/>
+              <rect x="812" y="58" width="44"  height="30" rx="1"/>
+            </g>
+            <text x="463" y="44" text-anchor="middle" class="chunk-label mono">选定块 H</text>
+            <path d="M463 48 v8" stroke="var(--amber)" stroke-width="1" stroke-dasharray="2 2"/>
+          </svg>
+          <div class="playhead" aria-hidden="true"></div>
+        </div>
+        <p class="fig-note mono">块长随状态分布自适应；Offline Critic 为每个候选长度学习价值，贪心或温度采样决定实际执行长度。</p>
+      </figure>
+    </section>
+
+    <!-- 研究方向 -->
+    <section id="research" class="sec">
+      <h2 class="sec-title">研究方向</h2>
+      <ul class="rows">
+        <li class="row">
+          <h3>自适应动作序列选择</h3>
+          <p>将 ACSAC 的自适应动作块机制与 DEAS 的离线动作序列价值学习结合，兼顾任务表现与执行灵活性。</p>
+          <p class="kw mono">ACSAC · DEAS · Isaac-GR00T · Offline RL</p>
+        </li>
+        <li class="row">
+          <h3>VLA 安全风险预测</h3>
+          <p>以障碍物位移事件为安全代理标签，预测未来 10 个动作内的事件风险，并增强夹爪—障碍物几何感知。</p>
+          <p class="kw mono">SafeLIBERO · π<sub>0.5</sub>-LIBERO · Risk Prediction</p>
+        </li>
+        <li class="row">
+          <h3>失败模式诊断</h3>
+          <p>从状态分布覆盖度出发定位误报来源，用轨迹补采与分量对照反推数据采集方案的调整方向。</p>
+          <p class="kw mono">State Coverage · Ablation · Failure Analysis</p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 科研项目 -->
+    <section id="work" class="sec">
+      <h2 class="sec-title">科研项目</h2>
+
+      <article class="proj">
+        <header class="proj-head">
+          <h3>面向具身操作的自适应动作序列选择与离线强化学习</h3>
+          <p class="proj-meta mono">研究成员 · 进行中 · 目标投稿 ICML 2027</p>
+        </header>
+
+        <p class="proj-lede">围绕机器人操作中动作执行长度的自适应选择开展研究，探索将 ACSAC 的自适应动作块机制与 DEAS 的离线动作序列价值学习结合，兼顾任务表现与执行灵活性。</p>
+
+        <ul class="bullets">
+          <li><b>基线训练</b>　基于 DEAS 与 Isaac-GR00T 开展离线 Critic 训练及动作序列选择实验，完成 RoboCasa 四任务数据准备与完整性校验、八卡分布式训练，并核查训练配置及模型保存与重载的一致性。</li>
+          <li><b>评估与分析</b>　在 TurnOffStove 任务上开展 Actor 基线、Critic 贪心选择与温度采样三组对照；比较单任务与四任务训练结果，排查训练—推理特征处理、模型权重来源及评估配置差异，为后续方法研究建立基线。</li>
+        </ul>
+
+        <figure class="fig">
+          <figcaption class="cap">
+            <span class="cap-t">评估矩阵 · TurnOffStove</span>
+            <span class="cap-n mono">5 SCENARIOS × 3 METHODS × 3 SEEDS × 10 EPISODES</span>
+          </figcaption>
+          <div class="matrix-wrap">
+            <svg viewBox="0 0 700 236" class="matrix" role="img" aria-label="评估矩阵示意：5 个场景，3 种方法各 3 个种子，每格 10 回合，共 450 回合">
+              <!-- 方法分组标题 -->
+              <g class="mx-group">
+                <rect x="56"  y="8" width="196" height="26" rx="1"/>
+                <rect x="258" y="8" width="196" height="26" rx="1"/>
+                <rect x="460" y="8" width="196" height="26" rx="1"/>
+              </g>
+              <g class="mx-group-label mono">
+                <text x="154" y="25" text-anchor="middle">Actor 基线</text>
+                <text x="356" y="25" text-anchor="middle">Critic 贪心</text>
+                <text x="558" y="25" text-anchor="middle">温度采样</text>
+              </g>
+              <!-- 种子列标题 -->
+              <g class="mx-seed mono">
+                <text x="89"  y="50" text-anchor="middle">s1</text><text x="153" y="50" text-anchor="middle">s2</text><text x="217" y="50" text-anchor="middle">s3</text>
+                <text x="291" y="50" text-anchor="middle">s1</text><text x="355" y="50" text-anchor="middle">s2</text><text x="419" y="50" text-anchor="middle">s3</text>
+                <text x="493" y="50" text-anchor="middle">s1</text><text x="557" y="50" text-anchor="middle">s2</text><text x="621" y="50" text-anchor="middle">s3</text>
+              </g>
+              <!-- 场景行标签 -->
+              <g class="mx-row mono">
+                <text x="46" y="72"  text-anchor="end">场景 1</text>
+                <text x="46" y="104" text-anchor="end">场景 2</text>
+                <text x="46" y="136" text-anchor="end">场景 3</text>
+                <text x="46" y="168" text-anchor="end">场景 4</text>
+                <text x="46" y="200" text-anchor="end">场景 5</text>
+              </g>
+              <!-- 45 个格子 -->
+              <g class="mx-cells mx-a">
+                <rect x="60"  y="60" width="58" height="14"/><rect x="124" y="60" width="58" height="14"/><rect x="188" y="60" width="58" height="14"/>
+                <rect x="60"  y="92" width="58" height="14"/><rect x="124" y="92" width="58" height="14"/><rect x="188" y="92" width="58" height="14"/>
+                <rect x="60"  y="124" width="58" height="14"/><rect x="124" y="124" width="58" height="14"/><rect x="188" y="124" width="58" height="14"/>
+                <rect x="60"  y="156" width="58" height="14"/><rect x="124" y="156" width="58" height="14"/><rect x="188" y="156" width="58" height="14"/>
+                <rect x="60"  y="188" width="58" height="14"/><rect x="124" y="188" width="58" height="14"/><rect x="188" y="188" width="58" height="14"/>
+              </g>
+              <g class="mx-cells mx-b">
+                <rect x="262" y="60" width="58" height="14"/><rect x="326" y="60" width="58" height="14"/><rect x="390" y="60" width="58" height="14"/>
+                <rect x="262" y="92" width="58" height="14"/><rect x="326" y="92" width="58" height="14"/><rect x="390" y="92" width="58" height="14"/>
+                <rect x="262" y="124" width="58" height="14"/><rect x="326" y="124" width="58" height="14"/><rect x="390" y="124" width="58" height="14"/>
+                <rect x="262" y="156" width="58" height="14"/><rect x="326" y="156" width="58" height="14"/><rect x="390" y="156" width="58" height="14"/>
+                <rect x="262" y="188" width="58" height="14"/><rect x="326" y="188" width="58" height="14"/><rect x="390" y="188" width="58" height="14"/>
+              </g>
+              <g class="mx-cells mx-c">
+                <rect x="464" y="60" width="58" height="14"/><rect x="528" y="60" width="58" height="14"/><rect x="592" y="60" width="58" height="14"/>
+                <rect x="464" y="92" width="58" height="14"/><rect x="528" y="92" width="58" height="14"/><rect x="592" y="92" width="58" height="14"/>
+                <rect x="464" y="124" width="58" height="14"/><rect x="528" y="124" width="58" height="14"/><rect x="592" y="124" width="58" height="14"/>
+                <rect x="464" y="156" width="58" height="14"/><rect x="528" y="156" width="58" height="14"/><rect x="592" y="156" width="58" height="14"/>
+                <rect x="464" y="188" width="58" height="14"/><rect x="528" y="188" width="58" height="14"/><rect x="592" y="188" width="58" height="14"/>
+              </g>
+            </svg>
+          </div>
+          <p class="fig-note mono">45 组配置 × 10 回合 = 450 回合评估。格子示意实验设计，非逐格结果。</p>
+        </figure>
+      </article>
+
+      <article class="proj">
+        <header class="proj-head">
+          <h3>VLA 执行过程中的安全风险预测与几何增强</h3>
+          <p class="proj-meta mono">研究成员 · 进行中</p>
+        </header>
+
+        <p class="proj-lede">以障碍物位移事件作为安全代理标签，预测未来 10 个动作内的事件风险；围绕机器人状态、动作信息及夹爪指腹—障碍物几何关系设计输入特征，在额外 30 回合的扩展离线评估中几何增强方案全面优于基础方案。</p>
+
+        <ul class="bullets">
+          <li><b>数据与评测</b>　基于 SafeLIBERO 与 π<sub>0.5</sub>-LIBERO 搭建轨迹采集、风险标签构造及离线评测流程；按初始布局划分训练、验证与测试集，避免同布局数据交叉。</li>
+          <li><b>特征设计</b>　完成六组输入方案、三个训练种子的对照实验，验证几何关系对风险判别的增益。</li>
+          <li><b>失败分析</b>　针对完整无位移成功回合中的持续误报，检查状态分布与训练数据覆盖，发现训练集缺少完整无位移轨迹；开展轨迹补采与动作旋转分量对照，为调整采集方案及后续动作条件风险评估提供依据。</li>
+        </ul>
+
+        <figure class="fig">
+          <figcaption class="cap">
+            <span class="cap-t">几何增强 vs 基础方案 · 扩展离线评估（+30 回合）</span>
+            <span class="cap-n mono">LOWER FPR IS BETTER</span>
+          </figcaption>
+
+          <div class="legend">
+            <span class="lg"><i class="sw sw-base"></i>基础方案</span>
+            <span class="lg"><i class="sw sw-geo"></i>几何增强</span>
+          </div>
+
+          <div class="metrics">
+            <div class="m">
+              <div class="m-head"><span class="m-name">AUROC</span><span class="m-delta mono">+0.0380</span></div>
+              <div class="bar"><i class="sw-base" style="--w:52.1%"></i><span class="mono">0.8281</span></div>
+              <div class="bar"><i class="sw-geo"  style="--w:77.4%"></i><span class="mono">0.8661</span></div>
+              <p class="m-axis mono">轴范围 0.75 – 0.90</p>
+            </div>
+
+            <div class="m">
+              <div class="m-head"><span class="m-name">危险窗口召回率</span><span class="m-delta mono">+9.1 pt</span></div>
+              <div class="bar"><i class="sw-base" style="--w:65.8%"></i><span class="mono">65.8%</span></div>
+              <div class="bar"><i class="sw-geo"  style="--w:74.9%"></i><span class="mono">74.9%</span></div>
+              <p class="m-axis mono">轴范围 0 – 100%</p>
+            </div>
+
+            <div class="m">
+              <div class="m-head"><span class="m-name">误报率</span><span class="m-delta mono">−2.6 pt</span></div>
+              <div class="bar"><i class="sw-base" style="--w:41.5%"></i><span class="mono">16.6%</span></div>
+              <div class="bar"><i class="sw-geo"  style="--w:35.0%"></i><span class="mono">14.0%</span></div>
+              <p class="m-axis mono">轴范围 0 – 40%</p>
+            </div>
+          </div>
+        </figure>
+      </article>
+    </section>
+
+    <!-- 教育背景 -->
+    <section id="edu" class="sec">
+      <h2 class="sec-title">教育背景</h2>
+      <div class="entry">
+        <div class="entry-l">
+          <h3>同济大学</h3>
+          <p class="entry-sub">启迪书院 · 计算机科学与技术（本科）</p>
+        </div>
+        <div class="entry-r mono">2025.09 – 2029.06（预计毕业）</div>
+      </div>
+      <p class="entry-courses">相关课程：高等数学、线性代数、概率论与数理统计、数据结构与算法</p>
+    </section>
+
+    <!-- 技术能力 -->
+    <section id="stack" class="sec">
+      <h2 class="sec-title">技术能力</h2>
+      <dl class="stack">
+        <div class="st">
+          <dt>编程与框架</dt>
+          <dd>Python、C++、PyTorch</dd>
+        </div>
+        <div class="st">
+          <dt>开发与实验</dt>
+          <dd>Linux、Git、Conda；具备轨迹数据处理、模型训练与评估、多卡分布式训练配置及实验问题排查经验</dd>
+        </div>
+        <div class="st">
+          <dt>科研实践</dt>
+          <dd>VLA 离线风险预测、离线 Critic 训练与动作序列评估、对照实验设计、消融分析与失败案例诊断</dd>
+        </div>
+      </dl>
+    </section>
+
+    <footer class="foot">
+      <span class="mono">Hawaii-xwy</span>
+      <span class="foot-sep">·</span>
+      <span>本站内容与简历同步更新</span>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+  // 章节导航高亮
+  const links = [...document.querySelectorAll('.nav a')];
+  const secs = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => {
+      if (!e.isIntersecting) return;
+      links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  secs.forEach(s => io.observe(s));
+
+  // 点击邮箱复制
+  document.querySelectorAll('.copy').forEach(b => {
+    b.addEventListener('click', async () => {
+      const txt = b.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(txt);
+      } catch (e) {
+        const t = document.createElement('textarea');
+        t.value = txt; document.body.appendChild(t); t.select();
+        document.execCommand('copy'); t.remove();
+      }
+      const old = b.textContent;
+      b.textContent = '已复制';
+      setTimeout(() => { b.textContent = old; }, 1400);
+    });
+  });
+</script>
+</body>
+</html>
